@@ -259,6 +259,53 @@ select.input { appearance: none; padding-right: 40px; background-image: linear-g
 .legend i { display: inline-block; width: 14px; height: 14px; border-radius: 5px; vertical-align: -2px; margin-right: 7px; }
 .legend i.dot { width: 8px; height: 8px; border-radius: 50%; margin: 0 9px 0 3px; vertical-align: 1px; }
 
+/* ── landscape timeline (≥980px): courts as rows, time across ── */
+.tl { display: grid; grid-template-columns: 150px 1fr; row-gap: 14px; column-gap: 14px; }
+.tl-corner { height: 22px; }
+.tl-hours { position: relative; height: 22px; }
+.tl-hours span { position: absolute; top: 0; font-family: var(--display); font-size: .82rem; font-weight: 700; color: var(--ink-2); white-space: nowrap; }
+.tl-court { position: relative; display: grid; align-content: center; gap: 4px; padding: 0 18px; border-radius: var(--r-lg); font-family: var(--display); font-weight: 750; font-size: 1.1rem; }
+.tl-court i { position: absolute; left: 0; top: 20px; bottom: 20px; width: 4px; border-radius: 0 4px 4px 0; }
+.tl-court small { font-family: var(--body); font-size: .76rem; font-weight: 800; opacity: .8; }
+.tl-court.c0 { background: color-mix(in srgb, var(--sage) 60%, var(--surface)); color: var(--sage-deep); } .tl-court.c0 i { background: var(--sage-deep); }
+.tl-court.c1 { background: color-mix(in srgb, var(--peri) 60%, var(--surface)); color: var(--peri-deep); } .tl-court.c1 i { background: var(--peri-deep); }
+.tl-track { position: relative; display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 3px; height: 92px; }
+.tc { position: relative; border: 0; padding: 0; border-radius: 10px; cursor: pointer; background: var(--surface);
+  box-shadow: var(--hi), 0 0 0 1px var(--hair), 0 6px 12px -10px rgba(84,62,32,.4); display: grid; place-items: center;
+  font-weight: 900; font-size: .78rem; color: var(--ink-3); transition: transform .16s var(--ease), background .2s, box-shadow .2s; }
+.tc b { opacity: 0; font-family: var(--display); font-size: 1.25rem; transition: opacity .15s; }
+.tc.free:not(:disabled):hover { transform: translateY(-3px); background: #fff; box-shadow: var(--clay-sm); }
+.tc.free:hover b, .tc.sel b { opacity: 1; }
+.tc.sel { transform: translateY(-3px); box-shadow: var(--clay-sm), 0 0 0 2.5px var(--ink); z-index: 1; }
+.tc.c0:hover, .tc.c0.sel { color: var(--sage-deep); } .tc.c1:hover, .tc.c1.sel { color: var(--peri-deep); }
+.tc.c0.sel { background: var(--sage); } .tc.c1.sel { background: var(--peri); }
+.tc.taken { cursor: default; background: var(--bg-deep); box-shadow: var(--press); }
+.tc.held { background: #f6ecc8; } .tc.block { background: #f5e0e3; }
+.tc.mine { background: var(--lime); color: var(--lime-deep); box-shadow: var(--clay-sm); }
+.tc.mine span { position: absolute; left: 8px; font-size: .74rem; white-space: nowrap; z-index: 2; }
+.tc.past { opacity: .3; box-shadow: none; cursor: default; }
+.tc.free.past { background: transparent; box-shadow: inset 0 0 0 1px var(--hair); }
+.tc.jl { border-top-left-radius: 3px; border-bottom-left-radius: 3px; }
+.tc.jr { border-top-right-radius: 3px; border-bottom-right-radius: 3px; }
+.tc .peak { position: absolute; top: 9px; left: 50%; margin-left: -3px; width: 6px; height: 6px; border-radius: 50%; background: #ff9a5c; }
+.tl-now { position: absolute; top: -6px; bottom: -6px; width: 2px; margin-left: -1px; border-radius: 2px; background: var(--ink); pointer-events: none; z-index: 2; }
+.tl-now span { position: absolute; top: -18px; left: 50%; transform: translateX(-50%); font-size: .62rem; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; background: var(--ink); color: var(--lime); padding: 2px 6px; border-radius: 6px; }
+@media (min-width: 980px) {
+  .board { padding: 30px 28px 24px; }
+}
+
+/* short landscape screens (phones turned sideways): keep the hero side by side and compact */
+@media (orientation: landscape) and (max-height: 560px) {
+  .hero { grid-template-columns: 1.1fr .9fr; gap: 28px; padding-block: 18px 12px; }
+  .hero-visual { order: 0; }
+  .hero-frame { aspect-ratio: 4 / 3; border-radius: 26px; max-height: 70vh; }
+  .hero h1 { font-size: clamp(2rem, 5.4vw, 3rem); }
+  .hero .lead { margin: 12px 0 18px; font-size: 1rem; }
+  .facts { margin-top: 18px; }
+  .float-card { left: -14px; bottom: 14px; padding: 8px 14px 8px 8px; }
+  .navlinks { bottom: 8px; }
+}
+
 /* ── how it works ── */
 .how { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
 .step { background: var(--surface); border-radius: var(--r-xl); box-shadow: var(--clay); overflow: hidden; }

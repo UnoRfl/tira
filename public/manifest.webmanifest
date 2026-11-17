@@ -1,0 +1,12 @@
+{
+  "name": "Courtly",
+  "short_name": "Courtly",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f3eee6",
+  "theme_color": "#f3eee6",
+  "icons": [
+    { "src": "brand/app-icon.png", "sizes": "1024x1024", "type": "image/png", "purpose": "any" },
+    { "src": "brand/app-icon.png", "sizes": "1024x1024", "type": "image/png", "purpose": "maskable" }
+  ]
+}

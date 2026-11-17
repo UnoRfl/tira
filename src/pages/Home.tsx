@@ -7,7 +7,7 @@ import { useApp } from '../ctx';
 import { errText, fmtTime, localDate, peso, useLoad, usePoll, type Availability } from '../lib';
 
 export function Home() {
-  const { club, me } = useApp();
+  const { club, me, toast } = useApp();
   const today = localDate(0, club.timezone);
   const [date, setDate] = useState(today);
   const [pick, setPick] = useState<Pick | null>(null);
@@ -21,11 +21,17 @@ export function Home() {
   usePoll(quiet, 20000);
 
   // the hero card always looks at today
-  const todayAv = useLoad(() => api.rpc<Availability>('availability', { p_club: club.id, p_date: today }).then(markFetched), [club.id, today]);
+  // (reuses the grid's data when the grid is on today, so the page doesn't fetch today twice)
+  const onToday = date === today;
+  const otherAv = useLoad(() => onToday ? Promise.resolve(null)
+    : api.rpc<Availability>('availability', { p_club: club.id, p_date: today }).then(markFetched), [club.id, today, onToday]);
+  const todayAv = { data: onToday ? av : otherAv.data, reload: (q?: boolean) => (onToday ? Promise.resolve() : otherAv.reload(q)) };
   const next = todayAv.data ? nextOpen(todayAv.data, club) : null;
 
   const days = Array.from({ length: club.member_window_days + 1 }, (_, i) => localDate(i, club.timezone));
   const fmt = (d: string, o: Intl.DateTimeFormatOptions) => new Date(d + 'T12:00:00+08:00').toLocaleDateString('en-PH', { ...o, timeZone: club.timezone });
+  const dayIdx = days.indexOf(date);
+  const locked = dayIdx > windowDays;
   const after = av && !av.closed && Date.now() >= new Date(av.closes!).getTime();
 
   return (
@@ -41,7 +47,7 @@ export function Home() {
           </div>
           <div className="facts">
             <div><b>{peso(club.price_per_hour_cents)}</b><span>per court-hour</span></div>
-            <div><b>7–9</b><span>open daily</span></div>
+            <div><b>7am–9pm</b><span>open daily</span></div>
             <div><b>{club.public_window_days} days</b><span>book ahead</span></div>
           </div>
         </div>
@@ -90,7 +96,10 @@ export function Home() {
             : loading && !av ? <GridSkeleton />
             : av?.closed ? <Empty title="Closed this day" />
             : after ? <Empty title="Closed for today">Pick another day above.</Empty>
-            : av && <CourtGrid av={av} club={club} pick={pick} onPick={setPick} onMine={() => { location.hash = '/me'; }} />}
+            : av && <>
+              {locked && <div className="note info" style={{ marginBottom: 14 }}><span>Members book up to {club.member_window_days} days ahead. Everyone else, up to {club.public_window_days}.</span></div>}
+              <CourtGrid av={av} club={club} pick={pick} onPick={(p) => (locked ? toast('Members only this far ahead', 'info') : setPick(p))} onMine={() => { location.hash = '/me'; }} />
+            </>}
           <div className="legend" aria-hidden>
             <span><i style={{ background: 'var(--surface)', boxShadow: '0 0 0 1px var(--hair)' }} />Open</span>
             <span><i style={{ background: 'var(--bg-deep)' }} />Booked</span>
@@ -104,7 +113,7 @@ export function Home() {
         <div className="section-head"><div><span className="eyebrow">Three steps</span><h2 id="how-title" style={{ marginTop: 10 }}>How it works</h2></div></div>
         <div className="how">
           {[
-            ['how-1.png', 'var(--sage)', 'Tap an open slot', 'It’s held for you for 5 minutes.'],
+            ['how-1.png', 'var(--sage)', 'Tap an open slot', 'It’s held for you while you finish.'],
             ['how-2.png', 'var(--peri)', 'Type your code', 'We email a 6-digit code. Only the first time.'],
             ['how-3.png', 'var(--peach)', 'Show it and play', 'Pay at the desk, then hit the court.'],
           ].map(([img, tint, t, s], i) => (

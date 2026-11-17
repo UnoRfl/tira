@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Component, useEffect, useState, type ReactNode } from 'react';
 import { api } from './api';
 import { BrandImg, Loading, ErrorBox, Sheet, Wordmark } from './components/Sheet';
 import { SignIn } from './components/SignIn';
@@ -50,10 +50,12 @@ function Shell() {
         </div>
       </header>
       <main>
-        {page === 'home' && <Home />}
-        {page === 'me' && <MyBookings />}
-        {page === 'desk' && <Desk />}
-        {page === 'privacy' && <Privacy />}
+        <Guard key={page}>
+          {page === 'home' && <Home />}
+          {page === 'me' && <MyBookings />}
+          {page === 'desk' && <Desk />}
+          {page === 'privacy' && <Privacy />}
+        </Guard>
       </main>
       <footer>
         <div className="wrap spread">
@@ -64,4 +66,16 @@ function Shell() {
       {signIn && <Sheet onClose={() => setSignIn(false)} title="Sign in"><SignIn onDone={() => setSignIn(false)} /></Sheet>}
     </>
   );
+}
+
+/** A crash in one page shows a retry box instead of blanking the whole site. */
+class Guard extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  componentDidCatch(e: unknown) { console.error(e); }
+  render() {
+    return this.state.failed
+      ? <div className="wrap section"><ErrorBox text="Something went wrong on this page." onRetry={() => this.setState({ failed: false })} /></div>
+      : this.props.children;
+  }
 }

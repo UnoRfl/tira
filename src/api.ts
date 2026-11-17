@@ -24,6 +24,8 @@ export const onAuthChange = (f: () => void) => { listeners.add(f); return () => 
 const emitAuth = () => listeners.forEach((f) => f());
 
 function normalize(e: any): ApiError {
+  // weak signal: the request never reached the server (the phone may still say it's online)
+  if (/failed to fetch|networkerror|load failed|network request failed/i.test(String(e?.message ?? e))) return new ApiError('network');
   const code = e?.code === '23P01' ? 'slot_taken' : e?.code === '42501' && /staff_only/.test(e?.message) ? 'staff_only' : (e?.message || 'error');
   return new ApiError(code.split('\n')[0]);
 }
@@ -51,12 +53,13 @@ function demoBackend(): Backend {
   try { sess = JSON.parse(localStorage.getItem('demo_session') || 'null'); } catch { /* none */ }
 
   async function open(fresh = false): Promise<PGlite> {
-    const [{ PGlite }, { btree_gist }, shim, init, fix, seed, demo] = await Promise.all([
+    const [{ PGlite }, { btree_gist }, shim, init, fix, fix4, seed, demo] = await Promise.all([
       import('@electric-sql/pglite'),
       import('@electric-sql/pglite/contrib/btree_gist'),
       import('./db/shim.sql?raw'),
       import('../supabase/migrations/20261117000001_init.sql?raw'),
       import('../supabase/migrations/20261117000003_helper_search_path.sql?raw'),
+      import('../supabase/migrations/20261118000004_review_fixes.sql?raw'),
       import('../supabase/seed.sql?raw'),
       import('./db/demo-seed.sql?raw'),
     ]);
@@ -70,8 +73,12 @@ function demoBackend(): Backend {
       await db.exec(shim.default);
       await db.exec(init.default);
       await db.exec(fix.default);
+      await db.exec(fix4.default);
       await db.exec(seed.default);
       await db.exec(demo.default);
+    } else {
+      const v = await db.query(`select to_regprocedure('public.release_hold(uuid,text)') is not null as ok`);
+      if (!(v.rows[0] as any).ok) await db.exec(fix4.default);
     }
     return db;
   }

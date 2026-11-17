@@ -24,7 +24,7 @@ export function MyBookings() {
   }
 
   const now = Date.now();
-  const upcoming = (data ?? []).filter((b) => new Date(b.end).getTime() > now && ['confirmed', 'held', 'checked_in'].includes(b.status)).reverse();
+  const upcoming = (data ?? []).filter((b) => new Date(b.end).getTime() > now && (['confirmed', 'checked_in'].includes(b.status) || (b.status === 'held' && !!b.hold_expires_at && new Date(b.hold_expires_at).getTime() > now))).reverse();
   const past = (data ?? []).filter((b) => !upcoming.includes(b));
   const courtIdx = (id: string) => Math.max(0, club.courts.findIndex((c) => c.id === id)) % 2;
   const dayPart = (iso: string, o: Intl.DateTimeFormatOptions) => new Date(iso).toLocaleDateString('en-PH', { ...o, timeZone: club.timezone });
@@ -37,17 +37,35 @@ export function MyBookings() {
     finally { setBusyId(null); }
   }
 
+  // a hold left behind by a refresh or Back can be finished here
+  async function finish(b: Booking) {
+    setBusyId(b.id);
+    try { await api.rpc('confirm_booking', { p_booking: b.id }); toast(`Booked · ${b.ref_code}`); }
+    catch (e) { toast(errText(e), 'err'); }
+    finally { setBusyId(null); reload(true); }
+  }
+  async function letGo(b: Booking) {
+    setBusyId(b.id);
+    try { await api.rpc('cancel_booking', { p_booking: b.id }); toast('Hold released'); }
+    catch (e) { toast(errText(e), 'err'); }
+    finally { setBusyId(null); reload(true); }
+  }
+
   const Item = ({ b, dim }: { b: Booking; dim?: boolean }) => {
     const canCancel = b.status === 'confirmed' && now < new Date(b.start).getTime() - club.cancel_cutoff_min * 60e3;
     return (
       <div className={`booking ${dim ? 'dim' : ''}`}>
         <div className={`date c${courtIdx(b.court_id)}`}><small>{dayPart(b.start, { weekday: 'short' })}</small><b>{dayPart(b.start, { day: 'numeric' })}</b></div>
         <div style={{ display: 'grid', gap: 3 }}>
-          <div className="row" style={{ gap: 12 }}><span className="title">{b.court_name}</span><span className={`status ${b.status}`}>{STATUS_LABEL[b.status] ?? b.status}</span></div>
+          <div className="row" style={{ gap: 12 }}><span className="title">{b.court_name}</span><span className={`status ${dim && b.status === 'held' ? 'expired' : b.status}`}>{dim && b.status === 'held' ? STATUS_LABEL.expired : STATUS_LABEL[b.status] ?? b.status}</span></div>
           <div className="small muted">{fmtTime(b.start)} – {fmtTime(b.end)} · {peso(b.price_cents)}</div>
           <div className="ref">{b.ref_code}</div>
         </div>
         <div className="row actions">
+          {b.status === 'held' && <>
+            <button className="btn sm accent" disabled={busyId === b.id} onClick={() => finish(b)}>{busyId === b.id ? <Spinner /> : 'Confirm'}</button>
+            <button className="btn sm ghost" disabled={busyId === b.id} onClick={() => letGo(b)}>Let go</button>
+          </>}
           {canCancel && <button className="btn sm danger" disabled={busyId === b.id} onClick={() => cancel(b)}>{busyId === b.id ? <Spinner /> : 'Cancel'}</button>}
           {b.status === 'confirmed' && !canCancel && !dim && <span className="tiny faint">Call the desk to cancel</span>}
         </div>

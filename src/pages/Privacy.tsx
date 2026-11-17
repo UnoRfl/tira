@@ -13,7 +13,7 @@ export function Privacy() {
         <h3>What we keep</h3>
         <p>Your name, email, phone (if given), bookings, check-ins and no-shows. We use them only to run court bookings and contact you about them.</p>
         <h3>Who processes it</h3>
-        <p>Supabase (database, Singapore), Cloudflare (hosting), our email/SMS provider, and PayMongo if you pay online.</p>
+        <p>Supabase (database, Singapore), GitHub Pages (hosting) and Google (sign-in code emails).</p>
         <h3>How long</h3>
         <p>Details are anonymised after 24 months without a booking.</p>
         <h3>Your rights</h3>

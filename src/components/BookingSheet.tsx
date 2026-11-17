@@ -90,9 +90,22 @@ export function BookingSheet({ av, pick, onClose, onChanged }: {
     finally { setBusy(false); }
   }
 
+  // leaving without closing (route change, sign-out): release the hold too
+  const live = useRef({ booking, signedIn });
+  live.current = { booking, signedIn };
+  useEffect(() => () => {
+    const { booking: b, signedIn: s } = live.current;
+    if (b && b.status === 'held') {
+      (s ? api.rpc('cancel_booking', { p_booking: b.id }) : api.rpc('release_hold', { p_booking: b.id, p_device_token: deviceToken() })).catch(() => undefined);
+    }
+  }, []);
+
   function close() {
-    if (booking && booking.status === 'held' && signedIn) {
-      api.rpc('cancel_booking', { p_booking: booking.id }).then(onChanged, () => undefined);
+    const b = booking; live.current.booking = null;   // the unmount cleanup must not release it twice
+    if (b && b.status === 'held') {
+      // signed in: cancel; guest: release the device's hold so the slot (and the guest) are free right away
+      (signedIn ? api.rpc('cancel_booking', { p_booking: b.id })
+        : api.rpc('release_hold', { p_booking: b.id, p_device_token: deviceToken() })).then(onChanged, () => undefined);
     }
     onClose();
   }

@@ -85,7 +85,11 @@ function Board({ date, setDate, day }: { date: string; setDate: (d: string) => v
         )}
         {b.status === 'confirmed' && e > now && (
           <button className="btn sm ghost" style={{ color: 'var(--rose-deep)' }} disabled={busy === b.id}
-            onClick={() => confirm(`Cancel ${b.name}'s booking? They'll be notified.`) && act(b, 'cancel_booking', { p_booking: b.id }, 'Cancelled')}>Cancel</button>
+            onClick={() => confirm(`Cancel ${b.name}'s booking?${b.source === 'online' ? " They'll be notified." : ''}`) && act(b, 'cancel_booking', { p_booking: b.id }, 'Cancelled')}>Cancel</button>
+        )}
+        {b.status === 'checked_in' && e > now && (
+          <button className="btn sm ghost" style={{ color: 'var(--rose-deep)' }} disabled={busy === b.id}
+            onClick={() => confirm(`Void ${b.name}'s booking and free the court?`) && act(b, 'cancel_booking', { p_booking: b.id }, 'Booking voided')}>Void</button>
         )}
       </div>
     );
@@ -146,12 +150,12 @@ function Board({ date, setDate, day }: { date: string; setDate: (d: string) => v
       )}
 
       {day.error ? <ErrorBox text={errText(day.error)} onRetry={() => day.reload()} />
-        : day.loading && !day.data ? <Loading />
+        : !day.data ? <Loading />
         : (
           <div className="desk-grid">
             {club.courts.map((c, i) => {
               const rows = list.filter((b) => b.court_id === c.id).map((b) => ({ t: b.start, b }));
-              const blocks = day.data!.blackouts.filter((x) => x.court_id === c.id).map((x) => ({ t: x.start, x }));
+              const blocks = (day.data?.blackouts ?? []).filter((x) => x.court_id === c.id).map((x) => ({ t: x.start, x }));
               const items = [...rows, ...blocks].sort((a, b) => a.t.localeCompare(b.t));
               return (
                 <div key={c.id} className="lane">
@@ -160,7 +164,7 @@ function Board({ date, setDate, day }: { date: string; setDate: (d: string) => v
                     <div key={it.x.id + it.x.start} className="slotrow block">
                       <div className="t">{fmtTime(it.x.start)}<small>to {fmtTime(it.x.end)}</small></div>
                       <div className="spread"><span className="who">{it.x.reason}</span>
-                        <button className="btn sm" onClick={async () => { await api.rpc('remove_blackout', { p_blackout: it.x.id }); toast('Court reopened'); day.reload(true); }}>Reopen</button>
+                        <button className="btn sm" onClick={async () => { try { await api.rpc('remove_blackout', { p_blackout: it.x.id }); toast('Court reopened'); day.reload(true); } catch (er) { toast(errText(er), 'err'); } }}>Reopen</button>
                       </div>
                     </div>
                   )) : <div className="inset center small muted" style={{ padding: 28 }}>No bookings</div>}
@@ -198,6 +202,8 @@ function WalkIn({ date, onClose, onDone }: { date: string; onClose: () => void; 
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [rid] = useState(uuid);
+  // starting within 15 min → checked in on the spot; later → a normal booking to check in on arrival
+  const startsNow = new Date(manilaISO(date, start)).getTime() <= Date.now() + 15 * 60e3;
 
   async function save(e: React.FormEvent) {
     e.preventDefault(); setBusy(true); setErr('');
@@ -208,7 +214,7 @@ function WalkIn({ date, onClose, onDone }: { date: string; onClose: () => void; 
   }
 
   return (
-    <Sheet onClose={onClose} title="Walk-in">
+    <Sheet onClose={onClose} title="Walk-in or phone booking">
       <form className="stack" style={{ gap: 16 }} onSubmit={save}>
         <div className="options" role="radiogroup" aria-label="Court">
           {club.courts.map((c) => <button type="button" role="radio" key={c.id} className="option" aria-checked={court === c.id} onClick={() => setCourt(c.id)}><b>{c.name}</b></button>)}
@@ -224,7 +230,7 @@ function WalkIn({ date, onClose, onDone }: { date: string; onClose: () => void; 
         <label className="field"><span>Name</span><input className="input" value={name} onChange={(e) => setName(e.target.value)} required /></label>
         <label className="field"><span>Phone</span><input className="input" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} /></label>
         {err && <div className="note err">{err}</div>}
-        <button className="btn primary lg block" disabled={busy || !name.trim()}>{busy ? <Spinner /> : `Book and check in · ${peso((club.price_per_hour_cents * minutes) / 60)}`}</button>
+        <button className="btn primary lg block" disabled={busy || !name.trim()}>{busy ? <Spinner /> : `${startsNow ? 'Book and check in' : 'Book'} · ${peso((club.price_per_hour_cents * minutes) / 60)}`}</button>
       </form>
     </Sheet>
   );

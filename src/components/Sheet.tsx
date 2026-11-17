@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 /** AI-generated artwork lives in /public/brand (prompts in BRAND-PROMPTS.md).
  *  Missing file → dashed placeholder naming the file in dev, nothing in production. */
@@ -18,7 +18,25 @@ export function Wordmark({ name, small }: { name: string; small?: boolean }) {
   );
 }
 
+// Back closes the open sheet (as on any phone app) instead of leaving the page.
+let openSheets = 0;
+const onSheetEntry = () => !!(history.state && history.state.sheet);
+
 export function Sheet({ onClose, title, children }: { onClose: () => void; title: ReactNode; children: ReactNode }) {
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  useEffect(() => {
+    openSheets++;
+    if (!onSheetEntry()) history.pushState({ ...(history.state ?? {}), sheet: true }, '');
+    const pop = () => { if (!onSheetEntry()) closeRef.current(); };
+    window.addEventListener('popstate', pop);
+    return () => {
+      window.removeEventListener('popstate', pop);
+      openSheets--;
+      // closed from the UI: drop the history entry we added (deferred so a remount can claim it)
+      setTimeout(() => { if (openSheets === 0 && onSheetEntry()) history.back(); }, 0);
+    };
+  }, []);
   useEffect(() => {
     const f = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', f);

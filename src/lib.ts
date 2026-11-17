@@ -43,6 +43,7 @@ export const manilaISO = (date: string, hm: string) => `${date}T${hm}:00+08:00`;
 
 const ERR: Record<string, string> = {
   slot_taken: 'Just taken. Pick another time.',
+  network: 'No connection. Check your signal and try again.',
   sign_in_required: 'Verify your email first.',
   verify_for_prime: 'Peak time: verify your email first.',
   one_hold_at_a_time: 'Finish your other booking first.',
@@ -67,6 +68,8 @@ const ERR: Record<string, string> = {
   not_yours: 'That booking is not yours.',
   cannot_cancel: 'This booking can’t be cancelled.',
   name_required: 'Name needed.',
+  cannot_check_in: 'This booking can’t be checked in.',
+  not_in_review: 'Already reviewed.',
 };
 export const errText = (e: any) => ERR[e?.code] ?? (navigator.onLine ? 'Something went wrong. Try again.' : 'You’re offline.');
 

@@ -3,7 +3,7 @@ import { fmtTime, type Availability, type Club } from '../lib';
 
 export type Pick = { courtIdx: number; courtId: string; start: string };
 
-type CellState = { kind: 'free' | 'taken' | 'held' | 'block' | 'mine'; past: boolean; prime: boolean; first: boolean; bookingId?: string | null };
+type CellState = { kind: 'free' | 'taken' | 'held' | 'block' | 'mine'; past: boolean; prime: boolean; first: boolean; bookingId?: string | null; unconfirmed?: boolean };
 
 const fetched = new WeakMap<object, number>();
 export const markFetched = (av: Availability) => { fetched.set(av, Date.now()); return av; };
@@ -21,7 +21,7 @@ export function cellStates(av: Availability, club: Club) {
       const o = c.occupied.find((x) => new Date(x.start).getTime() < t + g && new Date(x.end).getTime() > t);
       const kind = !o ? 'free' : o.mine ? 'mine' : o.kind === 'blackout' ? 'block' : o.held ? 'held' : 'taken';
       const first = !o || new Date(o.start).getTime() >= t || t === opens;
-      return { kind, first, past: t + g <= now || (kind === 'free' && t < now), prime: prime.has(t), bookingId: o?.booking_id };
+      return { kind, first, past: t + g <= now || (kind === 'free' && t < now), prime: prime.has(t), bookingId: o?.booking_id, unconfirmed: !!o?.mine && o.held };
     }));
   return { times, cols };
 }
@@ -59,8 +59,8 @@ function PortraitGrid({ av, club, pick, onPick, onMine }: {
               if (s.kind === 'mine') {
                 return (
                   <button key={ci} className={`cell mine ${shape} ${s.first ? '' : 'cont'} ${s.past ? 'past' : ''}`}
-                    aria-label={`${label}: your booking`} onClick={() => s.bookingId && onMine(s.bookingId)}>
-                    {WORD.mine}<span aria-hidden>→</span>
+                    aria-label={`${label}: ${s.unconfirmed ? 'not confirmed yet' : 'your booking'}`} onClick={() => s.bookingId && onMine(s.bookingId)}>
+                    {s.unconfirmed ? 'Not confirmed' : WORD.mine}<span aria-hidden>→</span>
                   </button>
                 );
               }
@@ -141,7 +141,7 @@ function Timeline({ av, club, pick, onPick, onMine }: GridProps) {
                 const shape = `${joinL ? 'jl' : ''} ${joinR ? 'jr' : ''}`;
                 if (s.kind === 'mine') {
                   return (
-                    <button key={r} className={`tc mine ${shape} ${s.past ? 'past' : ''}`} title="Your booking" aria-label={`${label}: your booking`}
+                    <button key={r} className={`tc mine ${shape} ${s.past ? 'past' : ''}`} title={s.unconfirmed ? 'Not confirmed yet' : 'Your booking'} aria-label={`${label}: ${s.unconfirmed ? 'not confirmed yet' : 'your booking'}`}
                       onClick={() => s.bookingId && onMine(s.bookingId)}>{s.first && <span>You</span>}</button>
                   );
                 }

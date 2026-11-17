@@ -6,3 +6,4 @@ dist
 !.env.production
 brand-originals
 .claude
+*.tsbuildinfo

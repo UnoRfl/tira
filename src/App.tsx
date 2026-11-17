@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from './api';
-import { BrandImg, Loading, ErrorBox, Sheet } from './components/Sheet';
+import { BrandImg, Loading, ErrorBox, Sheet, Wordmark } from './components/Sheet';
 import { SignIn } from './components/SignIn';
 import { AppProvider, useApp } from './ctx';
 import { errText, useHash, type Club } from './lib';
@@ -38,7 +38,7 @@ function Shell() {
       )}
       <header className="top">
         <div className="wrap nav">
-          <a className="brand" href="#/" aria-label={`${club.name} home`}><BrandImg name="logo-mark.png" className="brand-mark" /><span className="brand-word">{club.name}</span></a>
+          <a className="brand" href="#/" aria-label={`${club.name} home`}><BrandImg name="logo-mark.png" className="brand-mark" /><Wordmark name={club.name} /></a>
           <nav className="navlinks" aria-label="Main">
             <a href="#/" aria-current={page === 'home' ? 'page' : undefined}>Book</a>
             <a href="#/me" aria-current={page === 'me' ? 'page' : undefined}>My bookings</a>
@@ -57,7 +57,7 @@ function Shell() {
       </main>
       <footer>
         <div className="wrap spread">
-          <span>© {new Date().getFullYear()} {club.name}</span>
+          <span className="row" style={{ gap: 14 }}><Wordmark name={club.name} small /><span>© {new Date().getFullYear()}</span></span>
           <span className="row" style={{ gap: 18 }}><a href="#/privacy">Privacy</a>{api.mode === 'demo' && !staff && <span className="tiny">Desk demo: desk@club.test</span>}</span>
         </div>
       </footer>

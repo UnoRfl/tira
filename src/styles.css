@@ -3,7 +3,7 @@
    Shapes vary on purpose: squircle buttons, ticket confirmations, dot status labels, option cards.
    Pills are kept only for tiny tags. All artwork is AI-generated images in /public/brand (see BRAND-PROMPTS.md). */
 @import '@fontsource-variable/nunito';
-@import '@fontsource-variable/bricolage-grotesque';
+@import '@fontsource-variable/bricolage-grotesque/standard.css';
 
 :root {
   --bg: #f3eee6;
@@ -153,7 +153,15 @@ select.input { appearance: none; padding-right: 40px; background-image: linear-g
 .top { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--bg) 82%, transparent); backdrop-filter: saturate(1.4) blur(14px); border-bottom: 1px solid var(--hair); }
 .nav { display: flex; align-items: center; gap: 28px; height: 72px; }
 .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; margin-right: auto; }
-.brand-word { font-family: var(--display); font-weight: 800; font-size: 1.5rem; letter-spacing: -0.045em; }
+.wordmark { display: inline-grid; grid-template-columns: max-content; line-height: 1; color: var(--ink); }
+.wm-word { position: relative; font-family: var(--display); font-weight: 800; font-stretch: 75%; font-variation-settings: 'opsz' 96; font-size: 2.05rem; letter-spacing: .04em; line-height: .8; margin-right: -.04em; }
+.wm-ball { position: absolute; top: -4px; right: -10px; width: 9px; height: 9px; border-radius: 50%; background: var(--lime);
+  box-shadow: inset -1.5px -1.5px 0 rgba(63, 90, 12, .35), 0 2px 3px rgba(63, 90, 12, .25); }
+.wm-tag { margin-top: 5px; width: 0; min-width: 100%; font-family: var(--body); font-size: .5rem; font-weight: 900; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-3); text-align: justify; text-align-last: justify; white-space: nowrap; overflow: visible; }
+.wm-tag { display: flex; justify-content: space-between; }
+.wordmark.sm .wm-word { font-size: 1.35rem; }
+.wordmark.sm .wm-ball { width: 6px; height: 6px; top: -3px; right: -7px; }
+.wordmark.sm .wm-tag { font-size: .36rem; margin-top: 4px; }
 .brand-mark { width: 38px; height: 38px; border-radius: 11px; object-fit: cover; flex: none; }
 .brand .ph { font-size: 0; }
 .navlinks { display: flex; gap: 28px; }

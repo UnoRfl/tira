@@ -8,6 +8,16 @@ export function BrandImg({ name, alt = '', className }: { name: string; alt?: st
   return <img src={`${import.meta.env.BASE_URL}brand/${name}`} alt={alt} className={className} decoding="async" onError={() => setOk(false)} />;
 }
 
+/** The TIRA wordmark: condensed heavy caps, a lime ball in flight, tracked tag underneath. */
+export function Wordmark({ name, small }: { name: string; small?: boolean }) {
+  return (
+    <span className={`wordmark ${small ? 'sm' : ''}`} aria-label={name}>
+      <span className="wm-word" aria-hidden>{name.toUpperCase()}<i className="wm-ball" /></span>
+      <span className="wm-tag" aria-hidden>{'PICKLEBALL'.split('').map((c, i) => <span key={i}>{c}</span>)}</span>
+    </span>
+  );
+}
+
 export function Sheet({ onClose, title, children }: { onClose: () => void; title: ReactNode; children: ReactNode }) {
   useEffect(() => {
     const f = (e: KeyboardEvent) => e.key === 'Escape' && onClose();

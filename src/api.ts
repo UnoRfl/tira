@@ -139,7 +139,8 @@ function demoBackend(): Backend {
 function liveBackend(url: string, key: string): Backend {
   let sess: Session = null;
   const clientP = import('@supabase/supabase-js').then(({ createClient }) => {
-    const c = createClient(url, key);
+    // implicit flow: the emailed link works on any device/browser, not only the one that asked
+    const c = createClient(url, key, { auth: { flowType: 'implicit', detectSessionInUrl: true, persistSession: true } });
     c.auth.getSession().then(({ data }) => {
       sess = data.session ? { email: data.session.user.email ?? '', sub: data.session.user.id } : null;
       emitAuth();
@@ -158,14 +159,21 @@ function liveBackend(url: string, key: string): Backend {
     },
     async sendCode(email) {
       const c = await clientP;
-      const { error } = await c.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
-      if (error) throw new ApiError(error.status === 429 ? 'slow_down' : 'send_failed');
+      const { error } = await c.auth.signInWithOtp({
+        email,
+        options: { shouldCreateUser: true, emailRedirectTo: location.origin + import.meta.env.BASE_URL },
+      });
+      if (error) {
+        const m = (error.message || '').toLowerCase();
+        throw new ApiError(error.status === 429 || m.includes('rate') ? 'slow_down'
+          : m.includes('not authorized') || m.includes('not allowed') ? 'email_not_allowed' : 'send_failed', error.message);
+      }
       return {};
     },
     async verifyCode(email, code) {
       const c = await clientP;
       const { error } = await c.auth.verifyOtp({ email, token: code.trim(), type: 'email' });
-      if (error) throw new ApiError('bad_code');
+      if (error) throw new ApiError(error.status === 429 ? 'slow_down' : 'bad_code');
     },
     async signOut() { const c = await clientP; await c.auth.signOut(); },
   };

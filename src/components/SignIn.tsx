@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { api } from '../api';
-import { useApp } from '../ctx';
+import { ensureProfile, useApp } from '../ctx';
 import { errText, type Me } from '../lib';
 import { Spinner } from './Sheet';
 
@@ -22,6 +22,7 @@ export function SignIn({ onDone }: { onDone: (me: Me) => void }) {
   async function send() {
     setBusy(true); setErr('');
     try {
+      try { localStorage.setItem('pending_profile', JSON.stringify({ email: email.trim().toLowerCase(), name, consent })); } catch { /* private mode */ }
       const r = await api.sendCode(email.trim());
       setDemoCode(r.demoCode);
       setStep('code');
@@ -35,9 +36,7 @@ export function SignIn({ onDone }: { onDone: (me: Me) => void }) {
     try {
       await api.verifyCode(email.trim(), c);
       let me = await api.rpc<Me>('me');
-      if (!me.profile || me.contact?.needs_consent) {
-        me = await api.rpc<Me>('ensure_profile', { p_club: club.id, p_name: name, p_phone: null, p_consent: consent });
-      }
+      if (!me.profile || me.contact?.needs_consent) me = await ensureProfile(club.id, name, consent);
       await refreshMe();
       onDone(me);
     } catch (e) { setErr(errText(e)); setCode(''); setBusy(false); }
@@ -46,7 +45,7 @@ export function SignIn({ onDone }: { onDone: (me: Me) => void }) {
   if (step === 'code') {
     return (
       <form className="stack" style={{ gap: 18 }} onSubmit={(e) => { e.preventDefault(); verify(); }}>
-        <p className="muted">We sent a 6-digit code to <b style={{ color: 'var(--ink)' }}>{email}</b></p>
+        <p className="muted">We emailed a code to <b style={{ color: 'var(--ink)' }}>{email}</b>. Type the 6-digit code from it.</p>
         {demoCode && (
           <div className="note info">
             <span>Demo code <b className="num" style={{ letterSpacing: '.2em', fontSize: '1.1rem' }}>{demoCode}</b></span>

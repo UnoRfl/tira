@@ -1,6 +1,6 @@
 // App-shell cache only. Booking data is always fetched live (no offline booking, PLAN §6).
-const CACHE = 'courtly-v3';
-const ROOT = self.registration.scope;               // works at / and at /courtly/
+const CACHE = 'tira-v1';
+const ROOT = self.registration.scope;               // works at / and at /tira/
 const ASSETS = new URL('assets/', ROOT).pathname;
 self.addEventListener('install', (e) => { self.skipWaiting(); e.waitUntil(caches.open(CACHE).then((c) => c.add(ROOT))); });
 self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k))))); self.clients.claim(); });

@@ -449,7 +449,7 @@ function Report() {
           <span className="faint">to</span>
           <input type="date" className="input" style={{ height: 42, width: 170 }} value={to} onChange={(e) => setTo(e.target.value)} aria-label="To" />
         </div>
-        <button className="btn sm" style={{ height: 42 }} disabled={!rows.length} onClick={() => downloadCSV(`courtly_usage_${from}_${to}.csv`, rows)}>Export CSV</button>
+        <button className="btn sm" style={{ height: 42 }} disabled={!rows.length} onClick={() => downloadCSV(`tira_usage_${from}_${to}.csv`, rows)}>Export CSV</button>
       </div>
       {r.error ? <ErrorBox text={errText(r.error)} /> : r.loading && !r.data ? <Loading /> : (
         <>

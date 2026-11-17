@@ -1,4 +1,4 @@
-# Courtly: image prompts
+# Tira: image prompts
 
 Generate each image, save it with the **exact filename** into `app/public/brand/`, and it appears on the site
 automatically. Until a file exists, the dev site shows a dashed box with that filename.
@@ -10,7 +10,7 @@ automatically. Until a file exists, the dev site shows a dashed box with that fi
 > sage green #B9E4CF, periwinkle #CBC4F8, peach #FFC9A6, cream #F3EEE6, charcoal accents #23212B.
 > Clean, calm, premium, minimal. No text, no letters, no numbers, no logos, no watermark.
 
-Never ask the generator for words. The word "Courtly" is set in the site's font next to the logo.
+Never ask the generator for words. The word "Tira" is set in the site's font next to the logo.
 
 | File | Size / ratio | Background |
 |---|---|---|

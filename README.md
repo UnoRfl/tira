@@ -1,4 +1,4 @@
-# Courtly (Phase 1 core)
+# Tira (Phase 1 core)
 
 Website for the club's 2 courts. Vite + TypeScript + React, Supabase (Postgres) back end, claymorphism UI.
 Plan: `../PLAN.md` · owners' summary: `../OWNERS-BRIEF.md`.
@@ -18,7 +18,7 @@ Desk demo login: `desk@club.test`.
 
 ## Live (Supabase)
 
-Project **Courtly** `bloavrswkwhfrotpsswq` (Singapore, free plan) is set up: migrations 1–3 applied, seed run, cron `court-sweep` every minute, security advisor clean apart from the intended items. `.env` points the site at it (delete `.env` to get demo mode back). Still to do by hand:
+Supabase project `bloavrswkwhfrotpsswq` (named Courtly in the dashboard) (Singapore, free plan) is set up: migrations 1–3 applied, seed run, cron `court-sweep` every minute, security advisor clean apart from the intended items. `.env` points the site at it (delete `.env` to get demo mode back). Still to do by hand:
 
 1. (Was: create a project.) Later, move it to a club-owned Supabase org (Project settings → Transfer).
 2. (Done) Apply `supabase/migrations/*` (the second file schedules `sweep()` with pg_cron), then edit and run `supabase/seed.sql`.

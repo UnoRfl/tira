@@ -11,6 +11,9 @@ const SHIM = read('../src/db/shim.sql');
 const INIT = read('../supabase/migrations/20261117000001_init.sql');
 const FIX = read('../supabase/migrations/20261117000003_helper_search_path.sql');
 const FIX4 = read('../supabase/migrations/20261118000004_review_fixes.sql');
+const FIX5 = read('../supabase/migrations/20261118000005_notification_sender.sql');
+const FIX7 = read('../supabase/migrations/20261118000007_ip_from_proxy.sql');
+const FIX8 = read('../supabase/migrations/20261120000008_guest_ip_mobile_nat.sql');
 const SEED = read('../supabase/seed.sql');
 
 const CLUB = '00000000-0000-4000-8000-000000000001';
@@ -63,7 +66,7 @@ function nextWeekday() {
   throw new Error('no weekday');
 }
 const at = (date: string, hm: string) => `${date}T${hm}:00+08:00`;
-const TOMORROW = manilaDate(1);
+const TOMORROW = nextWeekday(); // a weekday, so morning test slots never land on weekend prime time
 const tok = () => 'device-' + randomUUID();
 
 beforeEach(async () => {
@@ -72,6 +75,9 @@ beforeEach(async () => {
   await db.exec(INIT);
   await db.exec(FIX);
   await db.exec(FIX4);
+  await db.exec(FIX5);
+  await db.exec(FIX7);
+  await db.exec(FIX8);
   await db.exec(SEED);
 });
 
@@ -232,7 +238,7 @@ describe('server functions', () => {
 });
 
 describe('unverified guests (§5 fix 1.3)', () => {
-  it('can hold a non-prime slot, 1 open hold per device (new pick replaces it) and per IP, 3-minute TTL', async () => {
+  it('can hold a non-prime slot, 1 open hold per device (new pick replaces it), 2 per IP, 3-minute TTL', async () => {
     const t = tok();
     const r = await call(null, 'hold_slot', { p_court: C1, p_start: at(TOMORROW, '13:00'), p_minutes: 60, p_client_request_id: randomUUID(), p_device_token: t });
     const ttl = (new Date(r.hold_expires_at).getTime() - Date.now()) / 60e3;
@@ -241,7 +247,9 @@ describe('unverified guests (§5 fix 1.3)', () => {
     expect(r2.status).toBe('held');
     const old = await db.query(`select status from public.bookings where id = $1`, [r.id]);
     expect((old.rows[0] as any).status).toBe('cancelled');
-    expect(await errOf(call(null, 'hold_slot', { p_court: C1, p_start: at(TOMORROW, '14:00'), p_minutes: 60, p_client_request_id: randomUUID(), p_device_token: tok() }, '198.51.100.1'))).toBe('one_hold_at_a_time');
+    // a second phone on the same IP may hold (shared mobile IP); a third may not
+    expect((await call(null, 'hold_slot', { p_court: C1, p_start: at(TOMORROW, '14:00'), p_minutes: 60, p_client_request_id: randomUUID(), p_device_token: tok() }, '198.51.100.1')).status).toBe('held');
+    expect(await errOf(call(null, 'hold_slot', { p_court: C1, p_start: at(TOMORROW, '15:00'), p_minutes: 60, p_client_request_id: randomUUID(), p_device_token: tok() }, '198.51.100.1'))).toBe('one_hold_at_a_time');
   });
 
   it('never holds prime slots', async () => {
@@ -249,12 +257,20 @@ describe('unverified guests (§5 fix 1.3)', () => {
     expect(await errOf(call(null, 'hold_slot', { p_court: C1, p_start: at(wd, '18:00'), p_minutes: 60, p_client_request_id: randomUUID(), p_device_token: tok() }))).toBe('verify_for_prime');
   });
 
-  it('3 holds per IP per 10 minutes', async () => {
-    for (let i = 0; i < 3; i++) {
-      const r = await call(null, 'hold_slot', { p_court: C1, p_start: at(TOMORROW, `1${i}:00`), p_minutes: 60, p_client_request_id: randomUUID(), p_device_token: tok() });
+  it('8 guest holds per IP per 10 minutes', async () => {
+    for (let i = 0; i < 8; i++) {
+      const r = await call(null, 'hold_slot', { p_court: i < 4 ? C1 : C2, p_start: at(TOMORROW, `1${i % 4}:00`), p_minutes: 60, p_client_request_id: randomUUID(), p_device_token: tok() });
       await db.query(`update public.court_blocks set hold_expires_at = now() - interval '1 s' where ref_id = $1`, [r.id]);
     }
     expect(await errOf(call(null, 'hold_slot', { p_court: C2, p_start: at(TOMORROW, '15:00'), p_minutes: 60, p_client_request_id: randomUUID(), p_device_token: tok() }))).toBe('slow_down');
+  });
+
+  it('a faked X-Forwarded-For prefix does not dodge the IP limits (proxy appends the real ip last)', async () => {
+    for (let i = 0; i < 8; i++) {
+      const r = await call(null, 'hold_slot', { p_court: i < 4 ? C1 : C2, p_start: at(TOMORROW, `1${i % 4}:00`), p_minutes: 60, p_client_request_id: randomUUID(), p_device_token: tok() }, `10.0.0.${i}, 203.0.113.7`);
+      await db.query(`update public.court_blocks set hold_expires_at = now() - interval '1 s' where ref_id = $1`, [r.id]);
+    }
+    expect(await errOf(call(null, 'hold_slot', { p_court: C2, p_start: at(TOMORROW, '15:00'), p_minutes: 60, p_client_request_id: randomUUID(), p_device_token: tok() }, '6.6.6.6, 203.0.113.7'))).toBe('slow_down');
   });
 
   it('attach after verification runs the rules and extends the hold', async () => {
@@ -337,9 +353,11 @@ describe('review fixes (2026-11-18)', () => {
     expect(r.status).toBe('held');
   });
 
-  it('a different device on the same IP still cannot hold a second slot', async () => {
+  it('two phones on one shared mobile IP can both hold; a third waits', async () => {
     await call(null, 'hold_slot', { p_court: C1, p_start: at(TOMORROW, '10:00'), p_minutes: 60, p_client_request_id: randomUUID(), p_device_token: tok() });
-    expect(await errOf(call(null, 'hold_slot', { p_court: C2, p_start: at(TOMORROW, '10:00'), p_minutes: 60, p_client_request_id: randomUUID(), p_device_token: tok() }))).toBe('one_hold_at_a_time');
+    const b = await call(null, 'hold_slot', { p_court: C2, p_start: at(TOMORROW, '10:00'), p_minutes: 60, p_client_request_id: randomUUID(), p_device_token: tok() });
+    expect(b.status).toBe('held');
+    expect(await errOf(call(null, 'hold_slot', { p_court: C1, p_start: at(TOMORROW, '12:00'), p_minutes: 60, p_client_request_id: randomUUID(), p_device_token: tok() }))).toBe('one_hold_at_a_time');
   });
 
   it('staff can void a walk-in; a later desk booking is confirmed, not checked in', async () => {
@@ -390,5 +408,55 @@ describe('fallbacks: refresh / back mid-booking', () => {
     await call(a, 'confirm_booking', { p_booking: x.id });
     const z = await call(a, 'confirm_booking', { p_booking: x.id });
     expect(z.status).toBe('confirmed');
+  });
+});
+
+describe('email outbox sender', () => {
+  const key = async () => ((await db.query(`select value from private.settings where key = 'notify_key'`)).rows[0] as any).value as string;
+  async function confirmed(email: string) {
+    const a = await user(email);
+    const h = await call(a, 'hold_slot', { p_court: C1, p_start: at(TOMORROW, '10:00'), p_minutes: 60, p_client_request_id: randomUUID() });
+    await call(a, 'confirm_booking', { p_booking: h.id });
+    return { a, h };
+  }
+
+  it('refuses a wrong or missing key, even for anon', async () => {
+    await confirmed('a@x.test');
+    expect(await errOf(call(null, 'claim_notifications', { p_key: 'nope', p_limit: 10 }))).toBe('bad_key');
+    expect(await errOf(call(null, 'claim_notifications', { p_key: null, p_limit: 10 }))).toBe('bad_key');
+    expect(await errOf(call(null, 'finish_notification', { p_key: 'nope', p_id: 1, p_error: null }))).toBe('bad_key');
+    const a = await user('b@x.test');
+    expect(await errOf(call(a, 'claim_notifications', { p_key: 'nope', p_limit: 10 }))).toBe('bad_key');
+  });
+
+  it('claims each email once, marks it sent, and retries a failure', async () => {
+    const { h } = await confirmed('a@x.test');
+    const k = await key();
+    const first = await call(null, 'claim_notifications', { p_key: k, p_limit: 10 });
+    expect(first).toHaveLength(1);
+    expect(first[0]).toMatchObject({ kind: 'booking_confirmed', email: 'a@x.test', club: 'Tira' });
+    expect(first[0].payload.ref_code).toBe(h.ref_code);
+    // a second sender running at the same time gets nothing
+    expect(await call(null, 'claim_notifications', { p_key: k, p_limit: 10 })).toHaveLength(0);
+    // failure → offered again
+    await call(null, 'finish_notification', { p_key: k, p_id: first[0].id, p_error: 'smtp down' });
+    const again = await call(null, 'claim_notifications', { p_key: k, p_limit: 10 });
+    expect(again.map((x: any) => x.id)).toEqual([first[0].id]);
+    await call(null, 'finish_notification', { p_key: k, p_id: first[0].id, p_error: null });
+    expect(await call(null, 'claim_notifications', { p_key: k, p_limit: 10 })).toHaveLength(0);
+    const row = (await db.query(`select sent_at is not null as sent, attempts, last_error from public.notifications`)).rows[0] as any;
+    expect(row).toMatchObject({ sent: true, attempts: 2, last_error: null });
+  });
+
+  it('cancel and club moves queue their own emails; walk-ins without email are closed, not sent', async () => {
+    const { a, h } = await confirmed('a@x.test');
+    await call(a, 'cancel_booking', { p_booking: h.id });
+    const s = await user('s@x.test', 'staff');
+    await call(s, 'walk_in', { p_court: C2, p_start: at(TOMORROW, '10:00'), p_minutes: 60, p_name: 'No Mail', p_phone: '', p_email: '', p_client_request_id: randomUUID() });
+    await db.query(`insert into public.notifications (club_id, contact_id, kind) select club_id, id, 'cancelled_by_club' from public.contacts where name = 'No Mail'`);
+    const got = await call(null, 'claim_notifications', { p_key: await key(), p_limit: 10 });
+    expect(got.map((x: any) => x.kind)).toEqual(['booking_confirmed', 'cancelled']);
+    const closed = (await db.query(`select last_error from public.notifications where last_error = 'no_email'`)).rows;
+    expect(closed).toHaveLength(1);
   });
 });

@@ -70,6 +70,7 @@ const ERR: Record<string, string> = {
   name_required: 'Name needed.',
   cannot_check_in: 'This booking can’t be checked in.',
   not_in_review: 'Already reviewed.',
+  cannot_move: 'Only upcoming bookings can be moved.',
 };
 export const errText = (e: any) => ERR[e?.code] ?? (navigator.onLine ? 'Something went wrong. Try again.' : 'You’re offline.');
 

@@ -51,6 +51,7 @@ function Board({ date, setDate, day }: { date: string; setDate: (d: string) => v
   const [found, setFound] = useState<Booking | null>(null);
   const [walkIn, setWalkIn] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  const [moving, setMoving] = useState<Booking | null>(null);
   const now = Date.now();
 
   async function act(b: Booking, fn: string, args: Record<string, unknown>, msg: string) {
@@ -82,6 +83,9 @@ function Board({ date, setDate, day }: { date: string; setDate: (d: string) => v
         </>}
         {b.status === 'checked_in' && b.paid_status === 'unpaid' && (
           <button className="btn sm accent" disabled={busy === b.id} onClick={() => act(b, 'check_in', { p_booking: b.id, p_paid: true }, 'Marked paid')}>Mark paid</button>
+        )}
+        {(b.status === 'confirmed' || b.status === 'checked_in') && e > now && (
+          <button className="btn sm" disabled={busy === b.id} onClick={() => setMoving(b)}>Move</button>
         )}
         {b.status === 'confirmed' && e > now && (
           <button className="btn sm ghost" style={{ color: 'var(--rose-deep)' }} disabled={busy === b.id}
@@ -175,6 +179,7 @@ function Board({ date, setDate, day }: { date: string; setDate: (d: string) => v
         )}
 
       {walkIn && <WalkIn date={date} onClose={() => setWalkIn(false)} onDone={() => { setWalkIn(false); day.reload(true); }} />}
+      {moving && <Move b={moving} onClose={() => setMoving(null)} onDone={(r) => { setMoving(null); day.reload(true); if (found?.id === r.id) setFound(r); }} />}
     </>
   );
 }
@@ -231,6 +236,50 @@ function WalkIn({ date, onClose, onDone }: { date: string; onClose: () => void; 
         <label className="field"><span>Phone</span><input className="input" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} /></label>
         {err && <div className="note err">{err}</div>}
         <button className="btn primary lg block" disabled={busy || !name.trim()}>{busy ? <Spinner /> : `${startsNow ? 'Book and check in' : 'Book'} · ${peso((club.price_per_hour_cents * minutes) / 60)}`}</button>
+      </form>
+    </Sheet>
+  );
+}
+
+function Move({ b, onClose, onDone }: { b: Booking; onClose: () => void; onDone: (r: Booking) => void }) {
+  const { club, toast } = useApp();
+  const tz = club.timezone;
+  const hm = (iso: string) => new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: tz }).format(new Date(iso));
+  const [date, setDate] = useState(new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date(b.start)));
+  const [court, setCourt] = useState(b.court_id);
+  const [start, setStart] = useState(hm(b.start));
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const nowHm = hm(new Date().toISOString());
+  const opts = halfHours().filter((h) => date !== localDate(0, tz) || h >= floorHalf(nowHm));
+  const same = court === b.court_id && manilaISO(date, start) === manilaISO(new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date(b.start)), hm(b.start));
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault(); setBusy(true); setErr('');
+    try {
+      const r = await api.rpc<Booking>('move_booking', { p_booking: b.id, p_court: court, p_start: manilaISO(date, start) });
+      toast(`Moved · ${r.court_name} ${fmtTime(r.start)}`); onDone({ ...b, ...r });
+    } catch (er) { setErr(errText(er)); setBusy(false); }
+  }
+
+  return (
+    <Sheet onClose={onClose} title={`Move ${b.name || 'booking'}`}>
+      <form className="stack" style={{ gap: 16 }} onSubmit={save}>
+        <p className="small muted" style={{ margin: 0 }}>Now: {b.court_name} · {fmtDay(b.start)} · {fmtTime(b.start)}–{fmtTime(b.end)}</p>
+        <div className="options" role="radiogroup" aria-label="Court">
+          {club.courts.map((c) => <button type="button" role="radio" key={c.id} className="option" aria-checked={court === c.id} onClick={() => setCourt(c.id)}><b>{c.name}</b></button>)}
+        </div>
+        <div className="row" style={{ gap: 12 }}>
+          <label className="field grow"><span>Day</span>
+            <input className="input" type="date" value={date} min={localDate(0, tz)} onChange={(e) => e.target.value && setDate(e.target.value)} />
+          </label>
+          <label className="field grow"><span>Start</span>
+            <select className="input" value={start} onChange={(e) => setStart(e.target.value)}>{opts.map((h) => <option key={h} value={h}>{hmLabel(h)}</option>)}</select>
+          </label>
+        </div>
+        {b.source === 'online' && <p className="tiny muted" style={{ margin: 0 }}>They get an email with the new time.</p>}
+        {err && <div className="note err">{err}</div>}
+        <button className="btn primary lg block" disabled={busy || same}>{busy ? <Spinner /> : 'Move booking'}</button>
       </form>
     </Sheet>
   );

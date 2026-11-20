@@ -53,13 +53,15 @@ function demoBackend(): Backend {
   try { sess = JSON.parse(localStorage.getItem('demo_session') || 'null'); } catch { /* none */ }
 
   async function open(fresh = false): Promise<PGlite> {
-    const [{ PGlite }, { btree_gist }, shim, init, fix, fix4, seed, demo] = await Promise.all([
+    const [{ PGlite }, { btree_gist }, shim, init, fix, fix4, fix7, fix8, seed, demo] = await Promise.all([
       import('@electric-sql/pglite'),
       import('@electric-sql/pglite/contrib/btree_gist'),
       import('./db/shim.sql?raw'),
       import('../supabase/migrations/20261117000001_init.sql?raw'),
       import('../supabase/migrations/20261117000003_helper_search_path.sql?raw'),
       import('../supabase/migrations/20261118000004_review_fixes.sql?raw'),
+      import('../supabase/migrations/20261118000007_ip_from_proxy.sql?raw'),
+      import('../supabase/migrations/20261120000008_guest_ip_mobile_nat.sql?raw'),
       import('../supabase/seed.sql?raw'),
       import('./db/demo-seed.sql?raw'),
     ]);
@@ -80,6 +82,9 @@ function demoBackend(): Backend {
       const v = await db.query(`select to_regprocedure('public.release_hold(uuid,text)') is not null as ok`);
       if (!(v.rows[0] as any).ok) await db.exec(fix4.default);
     }
+    // later fixes are plain create-or-replace: safe to re-run on every open
+    await db.exec(fix7.default);
+    await db.exec(fix8.default);
     return db;
   }
   const db = () => (dbp ??= open());
